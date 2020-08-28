@@ -1,9 +1,8 @@
 # Opentrack Plugin for X-Plane
 
-&nbsp;
-
 Standalone repository of the X-Plane plugin included in [Opentrack](https://github.com/opentrack/opentrack).  
-Allows building the plugin without having to build Opentrack as well.
+Allows building the plugin without having to build Opentrack as well.  
+Contains a precompiled plugin in the _"build"_ folder.
 
 &nbsp;
 
