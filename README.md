@@ -1,7 +1,9 @@
-# X-Plane-Opentrack-Plugin
+# Opentrack Plugin for X-Plane
 
-This repository contains only the X-Plane plugin that is compiled alongside Opentrack on Linux systems.   
-It offers a way to build only the plugin without having to build Opentrack as well.
+&nbsp;
+
+Standalone repository of the X-Plane plugin included in [Opentrack](https://github.com/opentrack/opentrack).  
+Allows building the plugin without having to build Opentrack as well.
 
 &nbsp;
 
@@ -9,13 +11,14 @@ It offers a way to build only the plugin without having to build Opentrack as we
 
 Based on commit b8e7865a017363e9d3876539936a6f73310a99d9 (2019/12/24) from Opentrack's repository.
 
-- Plugin output is not on after plugin start
+- Plugin output is not enabled after plugin start
 - Added On/Off commands for better plugin control (see below)
 - Implemented a plugin-specific, writable dataref (see below)
 - Robustness improvements (e.g. command phase detection)
 - Beautification for plugin strings and commands
 - Added some optional debug output strings for X-Plane's dev console and Log.txt (debug_strings in line 64; set to "1" and recompile)
 - Makefile for 64 bit Linux, compiling against the version 3.0 APIs
+- Added this readme
 
 &nbsp;
 
@@ -27,18 +30,17 @@ Move _opentrack.xpl_ from the _"build"_ folder into _"X-Plane 11/Resources/plugi
 
 ## Utilization
 
-The plugin is not permanently active anymore and can be controlled from X-Plane with these methods.
+The plugin can be controlled via command (and keyboard) and/or dataref.
 
 &nbsp;
 #### Commands
 
 These can also be set from X-Plane's keyboard assignment menu.
 
->Opentrack/Toggle - Toggles X-Plane 6 DOF head movement with Opentrack input.  
-Opentrack/On - Enables X-Plane 6 DOF head movement with Opentrack input.  
-Opentrack/Off - Disables X-Plane 6 DOF head movement with Opentrack input.  
-Opentrack/Toggle_Translation - Toggles X-Plane 3 DOF translation head movement with Opentrack input
-
+>Opentrack/Toggle - Toggles plugin output to X-Plane  
+Opentrack/On - Enables plugin output to X-Plane  
+Opentrack/Off - Disables plugin output to X-Plane  
+Opentrack/Toggle_Translation - Toggles plugin translation information output to X-Plane
 &nbsp;
 #### Datarefs
 
