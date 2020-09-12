@@ -18,6 +18,7 @@ Based on commit b8e7865a017363e9d3876539936a6f73310a99d9 (2019/12/24) from Opent
 - Added some optional debug output strings for X-Plane's dev console and Log.txt (debug_strings in line 64; set to "1" and recompile)
 - Makefile for 64 bit Linux, compiling against the version 3.0 APIs
 - Added this readme
+- Added X-Camera output support (12/09/2020)
 
 &nbsp;
 
@@ -40,12 +41,20 @@ These can also be set from X-Plane's keyboard assignment menu.
 Opentrack/On - Enables plugin output to X-Plane  
 Opentrack/Off - Disables plugin output to X-Plane  
 Opentrack/Toggle_Translation - Toggles plugin translation information output to X-Plane
+
 &nbsp;
 #### Datarefs
 
 For checking the plugins's status, there is the following dataref.
   
 >Opentrack/Tracking_Disabled - Writable
+
+&nbsp;
+#### With X-Camera
+When the presence of the [X-Camera](https://www.stickandrudderstudios.com/x-camera/) plugin is detected at startup, head position output will automatically be piped to its datarefs (see X-Camera manual).
+
+- Make sure that "TrackIR" is enabled (checked) in X-Camera's control panel. The checkbox also controls headtracking output to X-Camera when Opentrack and this plugin's output is active.
+- This plugin's commands (see above) are still active and required to control output.
     
 &nbsp;
 

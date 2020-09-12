@@ -66,10 +66,12 @@ static shm_wrapper* lck_posix = NULL;
 static WineSHM* shm_posix = NULL;
 static void *view_x, *view_y, *view_z, *view_heading, *view_pitch, *view_roll;
 static float offset_x, offset_y, offset_z;
+static void *xcam_mode, *xcam_ht_on, *xcam_offset_h, *xcam_offset_p, *xcam_offset_r, *xcam_offset_x, *xcam_offset_y, *xcam_offset_z;
 static XPLMCommandRef track_toggle = NULL, track_on = NULL, track_off = NULL, translation_disable_toggle = NULL;
 static XPLMDataRef StatusDataRef = NULL;
 static int track_disabled = 1;
 static int translation_disabled = 0;
+static int XCameraStatus = 0;
 
 static void get_head_xyz() {
     offset_x = XPLMGetDataf(view_x);
@@ -120,14 +122,31 @@ float write_head_position(float inElapsedSinceLastCall,
         shm_wrapper_lock(lck_posix);
         if (translation_disabled == 0)
         {
-            XPLMSetDataf(view_x, shm_posix->data[TX] * 1e-3 + offset_x);
-            XPLMSetDataf(view_y, shm_posix->data[TY] * 1e-3 + offset_y);
-            XPLMSetDataf(view_z, shm_posix->data[TZ] * 1e-3 + offset_z);
+			if (XCameraStatus < 2) {
+				XPLMSetDataf(view_x, shm_posix->data[TX] * 1e-3 + offset_x);
+				XPLMSetDataf(view_y, shm_posix->data[TY] * 1e-3 + offset_y);
+				XPLMSetDataf(view_z, shm_posix->data[TZ] * 1e-3 + offset_z);
+			} else {
+				if (XPLMGetDatai(xcam_mode) == 2) {
+					XPLMSetDataf(xcam_offset_x, shm_posix->data[TX] * 1e-3);
+					XPLMSetDataf(xcam_offset_y, shm_posix->data[TY] * 1e-3);
+					XPLMSetDataf(xcam_offset_z, shm_posix->data[TZ] * 1e-3);
+				}	
+			}
         }
-        XPLMSetDataf(view_heading, shm_posix->data[Yaw] * 180 / M_PI);
-        XPLMSetDataf(view_pitch, shm_posix->data[Pitch] * 180 / M_PI);
-        XPLMSetDataf(view_roll, shm_posix->data[Roll] * 180 / M_PI);
-        shm_wrapper_unlock(lck_posix);
+        if (XCameraStatus < 2) {
+			XPLMSetDataf(view_heading, shm_posix->data[Yaw] * 180 / M_PI);
+			XPLMSetDataf(view_pitch, shm_posix->data[Pitch] * 180 / M_PI);
+			XPLMSetDataf(view_roll, shm_posix->data[Roll] * 180 / M_PI);
+			
+		} else {
+			if (XPLMGetDatai(xcam_mode) == 2) {
+				XPLMSetDataf(xcam_offset_h, shm_posix->data[Yaw] * 180 / M_PI);
+				XPLMSetDataf(xcam_offset_p, shm_posix->data[Pitch] * 180 / M_PI);
+				XPLMSetDataf(xcam_offset_r, shm_posix->data[Roll] * 180 / M_PI);
+			}
+		}
+		shm_wrapper_unlock(lck_posix);
     }
     return -1.0;
 }
@@ -162,6 +181,42 @@ static void debug_translation_output()
     XPLMDebugString(message);
 }
 
+static void debug_xcam_status_output()
+{
+	char message[128];
+	if (XCameraStatus == 2)
+		sprintf(message,"Opentrack: X-Camera output started\n");
+	if (XCameraStatus == 1)
+		sprintf(message,"Opentrack: X-Camera output stopped\n");
+	XPLMDebugString(message);
+}
+/*
+ * X-Camera initialization 
+ */
+ static void Xcam_init()
+ {
+	xcam_mode = XPLMFindDataRef("SRS/X-Camera/integration/X-Camera_enabled"); //2 = tir mode 1 = enabled
+	xcam_ht_on = XPLMFindDataRef("SRS/X-Camera/integration/headtracking_present");
+	xcam_offset_h = XPLMFindDataRef("SRS/X-Camera/integration/headtracking_heading_offset");
+	xcam_offset_p = XPLMFindDataRef("SRS/X-Camera/integration/headtracking_pitch_offset");
+	xcam_offset_r = XPLMFindDataRef("SRS/X-Camera/integration/headtracking_roll_offset");
+	xcam_offset_x = XPLMFindDataRef("SRS/X-Camera/integration/headtracking_x_offset");
+	xcam_offset_y = XPLMFindDataRef("SRS/X-Camera/integration/headtracking_y_offset");
+	xcam_offset_z = XPLMFindDataRef("SRS/X-Camera/integration/headtracking_z_offset");
+		
+	if (xcam_mode && xcam_ht_on && xcam_offset_h && xcam_offset_p && xcam_offset_r && xcam_offset_x && xcam_offset_y && xcam_offset_z) {
+		XCameraStatus = 2;
+		XPLMSetDatai(xcam_ht_on,1);
+		if (debug_strings == 1) { debug_xcam_status_output(); }
+	} 
+ }
+ 
+ static void Xcam_deinit()
+ {
+	 XCameraStatus = 1;
+	 XPLMSetDatai(xcam_ht_on,0);
+	 if (debug_strings == 1) { debug_xcam_status_output(); }
+ }
 /* 
  *Flight loop callback handling 
  */
@@ -169,10 +224,13 @@ static void flightloop_handler()
 {
     if (debug_strings == 1) { debug_keyrelease_output(); }
     if (track_disabled == 0) {
-        get_head_xyz();
+		/* */
+		if (XCameraStatus == 1) { Xcam_init(); } 
+		else{ get_head_xyz(); }
         XPLMRegisterFlightLoopCallback(write_head_position, -1, NULL);
     }
     if (track_disabled == 1) {
+		if (XCameraStatus > 1) { Xcam_deinit(); }
         XPLMUnregisterFlightLoopCallback(write_head_position, NULL);
     }
     if (debug_strings == 1) { debug_status_output(); }
@@ -282,12 +340,11 @@ int XPluginStart (char* outName, char* outSignature, char* outDescription) {
 	track_off = XPLMCreateCommand("Opentrack/Off", "Disable Head Tracking");
 	translation_disable_toggle = XPLMCreateCommand("Opentrack/Toggle_Translation", "Toggle Input Translation");
 
+
     XPLMRegisterCommandHandler(track_toggle,TrackToggleHandler,1,NULL);
     XPLMRegisterCommandHandler(track_on,TrackOnHandler,1,NULL);
     XPLMRegisterCommandHandler(track_off,TrackOffHandler,1,NULL);
     XPLMRegisterCommandHandler(translation_disable_toggle,TranslationToggleHandler,1,NULL);
-    
-
     
     StatusDataRef = XPLMRegisterDataAccessor(
 								"Opentrack/Tracking_Disabled",
@@ -301,7 +358,7 @@ int XPluginStart (char* outName, char* outSignature, char* outDescription) {
 								NULL, NULL,									/* No accessors for raw data */
 								NULL, NULL);								/* Refcons not used */
 
-    if (view_x && view_y && view_z && view_heading && view_pitch && track_toggle && translation_disable_toggle) {
+    if (view_x && view_y && view_z && view_heading && view_pitch && track_toggle && track_on && track_off && translation_disable_toggle) {
         lck_posix = shm_wrapper_init(WINE_SHM_NAME, WINE_MTX_NAME, sizeof(WineSHM));
         if (lck_posix->mem == MAP_FAILED) {
             fprintf(stderr, "Opentrack: Failed to init SHM!\n");
@@ -319,6 +376,7 @@ int XPluginStart (char* outName, char* outSignature, char* outDescription) {
             XPLMDebugString(message);
         }
         fprintf(stderr, "Opentrack: Init complete\n");
+        
         return 1;
     }
     return 0;
@@ -338,22 +396,41 @@ void XPluginStop (void) {
 
 PLUGIN_API OTR_GENERIC_EXPORT
 int XPluginEnable (void) {
+	
+	XPLMPluginID XCam = XPLMFindPluginBySignature("SRS.X-Camera");
+	if (XCam != XPLM_NO_PLUGIN_ID) {
+		if (debug_strings == 1) {
+			char message[128];
+			sprintf(message,"Opentrack: X-Camera plugin found (ID %d); enabling output mode\n",XCam);
+			XPLMDebugString(message);
+		}
+		XCameraStatus = 1;		
+	}
     return 1;
 }
 
 PLUGIN_API OTR_GENERIC_EXPORT
 void XPluginDisable (void) {
+	if (XCameraStatus != 0) {
+		XCameraStatus = 0;		
+		if (debug_strings == 1) {
+			char message[128];
+			sprintf(message,"Opentrack: Disabling X-Camera output mode\n");
+			XPLMDebugString(message);
+		}
+	}
     track_disabled = 1;
     flightloop_handler();
     
+    
 }
 
-/* PLUGIN_API OTR_GENERIC_EXPORT
+PLUGIN_API OTR_GENERIC_EXPORT
 void XPluginReceiveMessage(XPLMPluginID    inFromWho,
                            int             inMessage,
                            void *          inParam)
 {
-    if (inMessage == XPLM_MSG_AIRPORT_LOADED) {
+    /*if (inMessage == XPLM_MSG_AIRPORT_LOADED) {
         get_head_xyz();
-    }
-} */
+    }*/
+}
