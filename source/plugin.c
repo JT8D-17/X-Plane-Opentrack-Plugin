@@ -69,7 +69,7 @@ static float offset_x, offset_y, offset_z;
 static void *xcam_mode, *xcam_ht_on, *xcam_offset_h, *xcam_offset_p, *xcam_offset_r, *xcam_offset_x, *xcam_offset_y, *xcam_offset_z;
 static XPLMCommandRef track_toggle = NULL, track_on = NULL, track_off = NULL, translation_disable_toggle = NULL;
 static XPLMDataRef StatusDataRef = NULL;
-static int track_disabled = 1;
+static int track_status = 0;
 static int translation_disabled = 0;
 static int XCameraStatus = 0;
 
@@ -157,9 +157,9 @@ float write_head_position(float inElapsedSinceLastCall,
 static void debug_status_output()
 {
     char message[128];
-    if (track_disabled == 0)
+    if (track_status == 1)
         sprintf(message,"Opentrack: Enabled tracking\n");
-    if (track_disabled == 1)
+    if (track_status == 0)
         sprintf(message,"Opentrack: Disabled tracking\n");
     XPLMDebugString(message);   
 }
@@ -223,13 +223,13 @@ static void debug_xcam_status_output()
 static void flightloop_handler()
 {
     if (debug_strings == 1) { debug_keyrelease_output(); }
-    if (track_disabled == 0) {
+    if (track_status == 1) {
 		/* */
 		if (XCameraStatus == 1) { Xcam_init(); } 
 		else{ get_head_xyz(); }
         XPLMRegisterFlightLoopCallback(write_head_position, -1, NULL);
     }
-    if (track_disabled == 1) {
+    if (track_status == 0) {
 		if (XCameraStatus > 1) { Xcam_deinit(); }
         XPLMUnregisterFlightLoopCallback(write_head_position, NULL);
     }
@@ -246,12 +246,12 @@ static int TrackToggleHandler(XPLMCommandRef inCommand,
 {
     /* Only perform this action upon command release */
     if (inPhase == 2) {
-        if (track_disabled == 1) {
-            track_disabled = 0;
+        if (track_status == 0) {
+            track_status = 1;
             flightloop_handler();
         }
-        else if (track_disabled == 0) {
-            track_disabled = 1;
+        else if (track_status == 1) {
+            track_status = 0;
             flightloop_handler();
         }
     }
@@ -265,7 +265,7 @@ static int TrackOnHandler(XPLMCommandRef inCommand,
 {
     /* Only perform this action upon command release */
     if (inPhase == 2) {
-        track_disabled = 0;
+        track_status = 1;
         flightloop_handler();
     }
     return 0;
@@ -277,7 +277,7 @@ static int TrackOffHandler(XPLMCommandRef inCommand,
 {
     /* Only perform this action upon command release */
     if (inPhase == 2) {
-        track_disabled = 1;
+        track_status = 0;
         flightloop_handler();
     }
     return 0;
@@ -307,12 +307,12 @@ static int TranslationToggleHandler(XPLMCommandRef inCommand,
 
 static int GetDataiCallback(void * inRefcon)
 {
-    return track_disabled;
+    return track_status;
 }
 
 void SetDataiCallback(void * inRefcon, int inValue)
 {
-    track_disabled = inValue;
+    track_status = inValue;
     flightloop_handler();
 }
 
@@ -347,7 +347,7 @@ int XPluginStart (char* outName, char* outSignature, char* outDescription) {
     XPLMRegisterCommandHandler(translation_disable_toggle,TranslationToggleHandler,1,NULL);
     
     StatusDataRef = XPLMRegisterDataAccessor(
-								"Opentrack/Tracking_Disabled",
+								"Opentrack/Tracking",
 								xplmType_Int,								/* The types we support */
 								1,											/* Writable */
 								GetDataiCallback, SetDataiCallback,			/* No accessors for ints */
@@ -367,8 +367,8 @@ int XPluginStart (char* outName, char* outSignature, char* outDescription) {
         shm_posix = lck_posix->mem;
         volatile_explicit_bzero(shm_posix, sizeof(WineSHM));
         strcpy(outName, "Opentrack");
-        strcpy(outSignature, "sthalik.Opentrack");
-        strcpy(outDescription, "Head tracking plugin for use with Opentrack; ");
+        strcpy(outSignature, "bk_sthalik.Opentrack");
+        strcpy(outDescription, "Head tracking plugin for use with Opentrack");
         //Debug
         if (debug_strings == 1) {
             char message[128];
@@ -419,7 +419,7 @@ void XPluginDisable (void) {
 			XPLMDebugString(message);
 		}
 	}
-    track_disabled = 1;
+    track_status = 0;
     flightloop_handler();
     
     

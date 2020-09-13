@@ -47,7 +47,10 @@ Opentrack/Toggle_Translation - Toggles plugin translation information output to 
 
 For checking the plugins's status, there is the following dataref.
   
->Opentrack/Tracking_Disabled - Writable
+>Opentrack/Tracking - Writable
+
+Value 0: Tracking is disabled
+Value 1: Tracking is enabled
 
 &nbsp;
 #### With X-Camera
